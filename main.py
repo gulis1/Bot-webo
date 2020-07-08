@@ -6,9 +6,8 @@ import asyncio
 
 from lib.danbooru import sendDanbooruIm, getTagList
 from lib.sauce import getSauce
-from lib.music import player, sendYtRresults, downloadSong, getYtTitle, video, retrievePlaylist, spotifyPlaylist
+from lib.music import player, sendYtRresults, getYtTitle, video, retrievePlaylist, spotifyPlaylist
 from lib.httpRequests import getStringResponse
-import youtube_dl
 from os import listdir, remove, system, path, mkdir
 from random import shuffle
 from json import load as loadJson
@@ -303,13 +302,10 @@ async def playlist(context, url, order=None):
         data[str(serverID)] = template
     
     if "spotify" in url:
-        lista = await spotifyPlaylist(url[-22:])
+        lista = await spotifyPlaylist(url[-22:], order)
     else:
         lista = retrievePlaylist(url[38:])
   
-    if order == "r":      
-        shuffle(lista)
-
     cont = 0
   
     for vid in lista:

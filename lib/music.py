@@ -1,6 +1,6 @@
 import youtube_dl
 
-import threading
+from threading import Thread
 import discord
 from discord.voice_client import VoiceClient
 from discord.ext import commands
@@ -11,8 +11,8 @@ from asyncio import sleep
 from .httpRequests import getStringResponse
 from googleapiclient.discovery import build
 from json import load as loadJson
-import multiprocessing
-import spotify
+from spotify import HTTPClient
+from random import randint
 
 with open("tokens.json") as tokens:
     tokens = loadJson(tokens)
@@ -21,7 +21,7 @@ with open("tokens.json") as tokens:
     spotifySecretId = tokens["spotify"]["secretId"]
 
 youtube = build("youtube", "v3", developerKey= api_key)
-spotifyClient = spotify.HTTPClient( spotifyClientId, spotifySecretId)
+spotifyClient = HTTPClient( spotifyClientId, spotifySecretId)
 
 class video():
     def __init__(self, videoId, title):
@@ -131,7 +131,7 @@ async def playSong(data, serverID, textChannel):
                 pass
 
             path = "serverAudio/" + serverID+".mp3"
-            p1 = threading.Thread(target=downloadSong, args=(vidID, path))
+            p1 = Thread(target=downloadSong, args=(vidID, path))
             p1.start()
 
             while p1.isAlive():
@@ -203,18 +203,30 @@ def retrievePlaylist(playlistID):
 
     return lista
 
-
-async def spotifyPlaylist(playlistId):
+async def spotifyPlaylist(playlistId, r):
     global spotifyClient
 
     playlist = await spotifyClient.get_playlist(playlistId)
     lista = []
 
-    for song in playlist["tracks"]["items"]:
+    if r == "r":
         
-        lista.append(video(None, song["track"]["name"] + " " + song["track"]["artists"][0]["name"]))
+        while len(lista) < 30 and len( playlist["tracks"]["items"]) > 0:
+
+            ind = randint(0, len(playlist["tracks"]["items"]))
+            
+            title = playlist["tracks"]["items"][ind]["track"]["name"] + playlist["tracks"]["items"][ind]["track"]["artists"][0]["name"]
+            vidID = None
+            
+            lista.append(video(None, title))
+            playlist["tracks"]["items"].pop(ind)
+
+    else:
+        for song in playlist["tracks"]["items"]:
+            
+            lista.append(video(None, song["track"]["name"] + " " + song["track"]["artists"][0]["name"]))
+            
+            if len(lista) >= 30:
+                break
         
-        if len(lista) >= 30:
-            break
-    
     return lista
