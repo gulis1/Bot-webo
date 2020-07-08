@@ -267,7 +267,7 @@ async def lista(context):
         loopSetting = "all"
 
        
-    text = "• Actual: {0} \n• Loop: {1}\n \n".format(data[serverID]["currentSong"].title, loopSetting)
+    text = "• **Actual**: {0} \n• **Loop**: {1}\n \n".format(data[serverID]["currentSong"].title, loopSetting)
     for num, video in enumerate(data[serverID]["playlist"]):
         text += '**' + str(num+1) + ")  "  + '**' + video.title + "\n \n"
     

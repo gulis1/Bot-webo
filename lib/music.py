@@ -212,7 +212,7 @@ async def spotifyPlaylist(playlistId):
 
     for song in playlist["tracks"]["items"]:
         
-        lista.append(video(None, song["track"]["name"]))
+        lista.append(video(None, song["track"]["name"] + " " + song["track"]["artists"][0]["name"]))
         
         if len(lista) >= 30:
             break
