@@ -6,7 +6,7 @@ import asyncio
 
 from lib.danbooru import sendDanbooruIm, getTagList
 from lib.sauce import getSauce
-from lib.music import player, sendYtRresults, getYtTitle, video, retrievePlaylist, spotifyPlaylist
+from lib.music import player, sendYtRresults, getVidInfo, video, retrievePlaylist, spotifyPlaylist
 from lib.httpRequests import getStringResponse
 from os import listdir, remove, system, path, mkdir
 from random import shuffle

@@ -14,6 +14,7 @@ from json import load as loadJson
 from spotify import HTTPClient
 from random import randint
 
+
 with open("tokens.json") as tokens:
     tokens = loadJson(tokens)
     api_key = tokens["youtube"]
@@ -24,9 +25,10 @@ youtube = build("youtube", "v3", developerKey= api_key)
 spotifyClient = HTTPClient( spotifyClientId, spotifySecretId)
 
 class video():
-    def __init__(self, videoId, title):
+    def __init__(self, videoId, title, length=0):
         self.id = videoId
         self.title = title
+        self.length = length
 
 
 async def player(context, data):
@@ -117,7 +119,11 @@ async def playSong(data, serverID, textChannel):
             return
 
     if data[serverID]["currentSong"].id == None:
-        data[serverID]["currentSong"].id = yt_search(data[serverID]["currentSong"].title)["items"][0]["id"]["videoId"]
+        try:
+            data[serverID]["currentSong"].id = yt_search(data[serverID]["currentSong"].title)["items"][0]["id"]["videoId"]
+        except IndexError:
+            await textChannel.send("Video no disponible.")
+            return
        
     # Downloads the song if loop is not on single.
     if data[serverID]["loop"] != 1:
@@ -175,10 +181,12 @@ async def sendYtRresults(context, data):
     #     embed = discord.Embed(title="Aprende a escribir pringao", colour = discord.Color.green())
     #     await context.message.channel.send(embed=embed)
 
-async def getYtTitle(idVid):
+async def getVidInfo(idVid):
     try:
         res = youtube.videos().list(part="snippet", id=idVid).execute()
         title = res["items"][0]["snippet"]["title"]
+
+        duration = res["items"][0]["contentDetails"]["duration"]
 
         return title
 
