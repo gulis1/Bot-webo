@@ -31,18 +31,30 @@ async def on_ready():
     print("Succesfully connected to Discord.")
 
 
-def checkChannel(context):
-    ok = True
+async def checkChannel(context, firstTimeCheck = True):
+    global data
     serverID = context.message.guild.id
-    
+
     try:
+        # Si está en un canal de voz distinto:
         if context.message.author.voice.channel.guild.id != serverID:
-            ok = False
+            embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
+            await context.message.channel.send(embed=embed)
+            return False
     
+    # Si no está en ningún canal de voz:
     except AttributeError:
-        ok = False
+        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
+        await context.message.channel.send(embed=embed)
+        return False
+    # Si no se ha metido nunca el bot en el server:
     
-    return ok
+    if firstTimeCheck and not str(serverID) in data.keys():
+        embed = discord.Embed(title="Todavía no he entrado aqui nunca", colour = discord.Color.green()) 
+        await context.message.channel.send(embed=embed)
+        return False
+    
+    return True
 
 @client.command(pass_context = True)
 async def help(context, part = None):
@@ -52,6 +64,7 @@ async def help(context, part = None):
             •  /play <url/nombre/numero> 
             •  /playlist <playlistURL> (r)
             •  /lista
+            •  /song
             •  /vaciar
             •  /loop <off/single/all>
             •  /skip (ind)
@@ -112,9 +125,7 @@ async def play(context, url):
     
     serverID = str(context.message.guild.id)
 
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await context.message.channel.send(embed=embed)
+    if not await checkChannel(context, firstTimeCheck=False):
         return
 
     if not str(serverID) in data.keys():
@@ -142,15 +153,19 @@ async def play(context, url):
         if url.startswith("http"):
             # Aqui se mete si se le pasa directamente una enlace
             videoID = url[32:]
-            title = await getYtTitle(videoID)
-
-            if title == None:
+            
+            vidInfo = await getVidInfo(videoID)
+            
+            if vidInfo == None:
                 embed = discord.Embed(title="Wrong URL.", colour = discord.Color.green())
                 await context.message.channel.send(embed=embed)
                 return
             
             else:
-                data[str(serverID)]["playlist"].append(video(videoID, title))
+                
+                title = vidInfo["title"]
+                duration = vidInfo["duration"]          
+                data[str(serverID)]["playlist"].append(video(videoID, title, duration=duration))
         
         else:
                 
@@ -158,7 +173,8 @@ async def play(context, url):
                 num = int(url) - 1
                 videoID = data[str(serverID)]["search"][num].id
                 title = data[str(serverID)]["search"][num].title
-                data[str(serverID)]["playlist"].append(video(videoID, title))
+                duration = data[str(serverID)]["search"][num].duration
+                data[str(serverID)]["playlist"].append(video(videoID, title, duration=duration))
         
             except ValueError:  # Aqui se mete si se pone un nombre de una cancion
                 await sendYtRresults(context, data)
@@ -176,9 +192,7 @@ async def play(context, url):
 async def leave(context):
     serverID = str(context.message.guild.id)
 
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await context.message.channel.send(embed=embed)
+    if not await checkChannel(context):
         return
     
     await data[serverID]["voiceClient"].disconnect()
@@ -189,9 +203,7 @@ async def loop(context, msg):
     global data
     serverID = str(context.message.guild.id)
 
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await context.message.channel.send(embed=embed)
+    if not await checkChannel(context):
         return
 
 
@@ -215,9 +227,7 @@ async def skip(context, ind = None):
     global data
     serverID = str(context.message.guild.id)
     
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await context.message.channel.send(embed=embed)
+    if not await checkChannel(context):
         return
 
 
@@ -244,18 +254,11 @@ async def skip(context, ind = None):
 async def lista(context):
     global data
 
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await context.message.channel.send(embed=embed)
+    if not await checkChannel(context):
         return
 
     serverID = str(context.message.guild.id)
-
-    if not str(serverID) in data.keys():
-        embed = discord.Embed(title="Todavía no he entrado aqui nunca", colour = discord.Color.green()) 
-        await context.message.channel.send(embed=embed)
-        return
-    
+  
     if data[serverID]["loop"] == 0:
         loopSetting = "off"
 
@@ -266,7 +269,7 @@ async def lista(context):
         loopSetting = "all"
 
        
-    text = "• **Actual**: {0} \n• **Loop**: {1}\n \n".format(data[serverID]["currentSong"].title, loopSetting)
+    text = "• **Actual:** {0} \n• **Loop:** {1}\n \n".format(data[serverID]["currentSong"].title, loopSetting)
     for num, video in enumerate(data[serverID]["playlist"]):
         text += '**' + str(num+1) + ")  "  + '**' + video.title + "\n \n"
     
@@ -280,10 +283,8 @@ async def playlist(context, url, order=None):
     
     textChannel = context.message.channel  
     serverID = str(context.message.guild.id)
-
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await textChannel.send(embed=embed)
+    
+    if not await checkChannel(context, firstTimeCheck=False):
         return
 
     if not serverID in data.keys():
@@ -334,9 +335,7 @@ async def quitar(context, numero):
     textChannel = context.message.channel
     serverID = str(context.message.guild.id)
 
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await textChannel.send(embed=embed)
+    if not await checkChannel(context):
         return
 
     try:
@@ -359,14 +358,40 @@ async def vaciar(context):
     textChannel = context.message.channel
     serverID = str(context.message.guild.id)
 
-    if not checkChannel(context):
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await context.message.channel.send(embed=embed)
+    if not await checkChannel(context):
         return
 
     data[serverID]["playlist"].clear()
 
     embed = discord.Embed(title="Se ha vaciado la playlist", colour = discord.Color.green())
+    await textChannel.send(embed=embed)
+
+@client.command(pass_context = True)
+async def song(context):
+    global data
+
+    if not await checkChannel(context):
+        return
+
+    serverID = str(context.message.guild.id)
+    textChannel = context.message.channel
+
+    embed = discord.Embed(colour=discord.Color.green())
+    
+    if data[serverID]["voiceClient"] != None and data[serverID]["voiceClient"].is_playing():
+        msg = list(["-" for x in range(0, 30)])
+        ind = round(30* (data[serverID]["currentSong"].perCentPlayed()))
+
+        msg[ind] = "**|**"
+        msg = "".join(msg)
+       
+        embed.title = data[serverID]["currentSong"].title
+
+        embed.description = "\t" + msg
+    
+    else:
+        embed.title = "No esta sonando nada"
+
     await textChannel.send(embed=embed)
 
 
