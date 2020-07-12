@@ -24,6 +24,18 @@ with open("tokens.json") as tokens:
 youtube = build("youtube", "v3", developerKey= api_key)
 spotifyClient = HTTPClient( spotifyClientId, spotifySecretId)
 
+template =     {
+                    "voiceClient": None,
+                    "playlist": [
+                        
+                    ],
+                    "search":[
+
+                    ],
+                    "loop": 0,
+                    "currentSong": None
+                }
+
 class video():
     def __init__(self, videoId, title, duration=None):
         self.id = videoId
@@ -54,31 +66,17 @@ async def player(context, data):
 
         await sleep(3)
 
+        # If the bot is alone in the voice channel, the loop ends.
         if len(data[serverID]["voiceClient"].channel.members) == 1:
-            data[serverID]["loop"] = 0
-            data[serverID]["playlist"].clear()
-            data[serverID]["currentSong"] = None
-
             await data[serverID]["voiceClient"].disconnect()
-            data[serverID]["voiceClient"] = None
-
             await textChannel.send("Se ha ido todo el mundo, me piro")
-                   
-            try:
-                remove("serverAudio/" + serverID + ".mp3")
-            except FileNotFoundError:               
-                pass
-            return
 
+            
         # If there are no more songs and the one that was playing is finished, the loop ends.
         if (data[serverID]["currentSong"] == None and not data[serverID]["voiceClient"].is_playing()):
-            break
-    
-    # Cuando se acaba la playlist:
-    data[serverID]["loop"] = 0
-    data[serverID]["playlist"].clear()
-    data[serverID]["currentSong"] = None
-    await textChannel.send("La playlist esta vacia, me piro.")
+            await data[serverID]["voiceClient"].disconnect()
+            await textChannel.send("La playlist esta vacia, me piro.")
+        
     
     try:
         remove("serverAudio/" + serverID + ".mp3")
@@ -87,6 +85,9 @@ async def player(context, data):
     
     await data[serverID]["voiceClient"].disconnect()
     data[serverID]["voiceClient"] = None
+    data[serverID]["loop"] = 0
+    data[serverID]["playlist"].clear()
+    data[serverID]["currentSong"] = None
 
 def downloadSong(videoId, path):
     

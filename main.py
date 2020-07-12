@@ -6,7 +6,7 @@ import asyncio
 
 from lib.danbooru import sendDanbooruIm, getTagList
 from lib.sauce import getSauce
-from lib.music import player, sendYtRresults, getVidInfo, video, retrievePlaylist, spotifyPlaylist
+from lib.music import player, sendYtRresults, getVidInfo, video, retrievePlaylist, spotifyPlaylist, template
 from lib.httpRequests import getStringResponse
 from os import listdir, remove, system, path, mkdir
 from random import shuffle
@@ -26,35 +26,33 @@ system("youtube-dl --rm-cache-dir")
 
 MAX_SONGS = 30
 
+async def userConnectedToGuildVoice(context):
+    serverID = context.message.guild.id
+
+    if context.message.author.voice != None and context.message.author.voice.channel.guild.id == serverID:
+        return True
+
+    else:
+        embed = discord.Embed(title="Tienes que estar en un canal de voz de este server.", colour = discord.Color.green())
+        await context.message.channel.send(embed=embed)
+        return False
+
+async def botIsConnectedToGuildVoice(context):
+    global data
+    serverID = str(context.message.guild.id)
+
+    if serverID not in data.keys() or data[serverID]["voiceClient"] == None:
+        embed = discord.Embed(title="Ahora mismo no estoy metido aquí.", colour = discord.Color.green())
+        await context.message.channel.send(embed=embed)
+        return False
+
+    else:
+        return True
+
+# Image commands
 @client.event
 async def on_ready():
     print("Succesfully connected to Discord.")
-
-
-async def checkChannel(context, firstTimeCheck = True):
-    global data
-    serverID = context.message.guild.id
-
-    try:
-        # Si está en un canal de voz distinto:
-        if context.message.author.voice.channel.guild.id != serverID:
-            embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-            await context.message.channel.send(embed=embed)
-            return False
-    
-    # Si no está en ningún canal de voz:
-    except AttributeError:
-        embed = discord.Embed(title="Tienes que estar en un canal de voz.", colour = discord.Color.green())
-        await context.message.channel.send(embed=embed)
-        return False
-    # Si no se ha metido nunca el bot en el server:
-    
-    if firstTimeCheck and not str(serverID) in data.keys():
-        embed = discord.Embed(title="Todavía no he entrado aqui nunca", colour = discord.Color.green()) 
-        await context.message.channel.send(embed=embed)
-        return False
-    
-    return True
 
 @client.command(pass_context = True)
 async def help(context, part = None):
@@ -117,32 +115,21 @@ async def sauce(context):
     else:
         message.content = "/sauce " + message.attachments[0].proxy_url
         await getSauce(message)
-   
+
+
+# Music commands
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
 @client.command(pass_context = True)
-async def play(context, url):
+async def play(context, arg):
     global data
     global MAX_SONGS
-    
+
     serverID = str(context.message.guild.id)
-
-    if not await checkChannel(context, firstTimeCheck=False):
-        return
-
-    if not str(serverID) in data.keys():
-        template = {
-                    "voiceClient": None,
-                    "playlist": [
-                        
-                    ],
-                    "search":[
-
-                    ],
-                    "loop": 0,
-                    "currentSong": None
-                }
-                
-    
+ 
+    if not str(serverID) in data.keys():  
         data[serverID] = template
+
 
     if len(data[str(serverID)]["playlist"]) > MAX_SONGS - 1:
         embed = discord.Embed(title="Ya hay 30 canciones en la playlist.", colour = discord.Color.green())
@@ -150,9 +137,9 @@ async def play(context, url):
     
     else:
   
-        if url.startswith("http"):
+        if arg.startswith("http"):
             # Aqui se mete si se le pasa directamente una enlace
-            videoID = url[32:]
+            videoID = arg[32:]
             
             vidInfo = await getVidInfo(videoID)
             
@@ -167,45 +154,82 @@ async def play(context, url):
                 duration = vidInfo["duration"]          
                 data[str(serverID)]["playlist"].append(video(videoID, title, duration=duration))
         
-        else:
-                
-            try:   # Aqui se si se pone un numero para seleccionar de una busqueda
-                num = int(url) - 1
+        elif arg.isnumeric():
+            num = int(arg) - 1
+            try:
                 videoID = data[str(serverID)]["search"][num].id
                 title = data[str(serverID)]["search"][num].title
                 duration = data[str(serverID)]["search"][num].duration
                 data[str(serverID)]["playlist"].append(video(videoID, title, duration=duration))
-        
-            except ValueError:  # Aqui se mete si se pone un nombre de una cancion
-                await sendYtRresults(context, data)
-                return
-        
+            
             except IndexError:
                 return
 
+        else:  # Aqui se mete si se pone un nombre de una cancion
+            await sendYtRresults(context, data)
+            return
+        
+        
         await context.message.channel.send("Cancion añadida a la playlist")
 
         if data[serverID]["voiceClient"] == None:
             await player(context, data)
 
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@client.command(pass_context = True)
+async def playlist(context, url, order=None):
+    global MAX_SONGS
+    
+    textChannel = context.message.channel  
+    serverID = str(context.message.guild.id)
+       
+    if not serverID in data.keys():
+        data[str(serverID)] = template
+    
+    if "spotify" in url:
+        lista = await spotifyPlaylist(url[34:], order)
+    else:
+        lista = retrievePlaylist(url[38:])
+  
+    cont = 0
+
+    for vid in lista:
+   
+        if len(data[serverID]["playlist"]) < MAX_SONGS:
+            vidID = vid.id
+            title = vid.title
+            
+            data[serverID]["playlist"].append(video(vidID, title))
+            cont += 1
+        else:
+            break
+
+
+    
+    embed = embed = discord.Embed(title="Se han añadido " + str(cont) + " canciones a la playlist.", colour = discord.Color.green())
+    await textChannel.send(embed=embed)   
+
+    if data[serverID]["voiceClient"] == None:
+        await player(context, data)
+
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def leave(context):
     serverID = str(context.message.guild.id)
-
-    if not await checkChannel(context):
-        return
-    
+     
     await data[serverID]["voiceClient"].disconnect()
     data[serverID]["voiceClient"] = None
 
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def loop(context, msg):
     global data
     serverID = str(context.message.guild.id)
-
-    if not await checkChannel(context):
-        return
-
 
     if str(serverID) in data.keys():
             
@@ -221,16 +245,15 @@ async def loop(context, msg):
             data[serverID]["loop"] = 2
             await context.message.channel.send("Loop set to all")
 
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def skip(context, ind = None):
 
     global data
     serverID = str(context.message.guild.id)
     
-    if not await checkChannel(context):
-        return
-
-
     if data[serverID]["loop"] == 1:
         data[serverID]["loop"] = 0
                  
@@ -250,13 +273,13 @@ async def skip(context, ind = None):
     data[serverID]["voiceClient"].stop()
     await context.message.channel.send("Song skipped.")
 
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def lista(context):
     global data
-
-    if not await checkChannel(context):
-        return
-
+   
     serverID = str(context.message.guild.id)
   
     if data[serverID]["loop"] == 0:
@@ -277,67 +300,16 @@ async def lista(context):
 
     await context.message.channel.send(embed=embed)
 
-@client.command(pass_context = True)
-async def playlist(context, url, order=None):
-    global MAX_SONGS
-    
-    textChannel = context.message.channel  
-    serverID = str(context.message.guild.id)
-    
-    if not await checkChannel(context, firstTimeCheck=False):
-        return
-
-    if not serverID in data.keys():
-        template = {
-                    "voiceClient": None,
-                    "playlist": [
-                        
-                    ],
-                    "search":[
-
-                    ],
-                    "loop": 0,
-                    "currentSong": None
-                }
-
-        data[str(serverID)] = template
-    
-    if "spotify" in url:
-        lista = await spotifyPlaylist(url[-22:], order)
-    else:
-        lista = retrievePlaylist(url[38:])
-  
-    cont = 0
-  
-    for vid in lista:
-   
-        if len(data[serverID]["playlist"]) < MAX_SONGS:
-            vidID = vid.id
-            title = vid.title
-            
-            data[serverID]["playlist"].append(video(vidID, title))
-            cont += 1
-        else:
-            break
-
-
-    
-    embed = embed = discord.Embed(title="Se han añadido " + str(cont) + " canciones a la playlist.", colour = discord.Color.green())
-    await textChannel.send(embed=embed)   
-
-    if data[serverID]["voiceClient"] == None:
-        await player(context, data)
-
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def quitar(context, numero):
     global data
     
     textChannel = context.message.channel
     serverID = str(context.message.guild.id)
-
-    if not await checkChannel(context):
-        return
-
+   
     try:
         numero =  int(numero)
         try:
@@ -351,6 +323,9 @@ async def quitar(context, numero):
     except:
         await textChannel.send("What")
 
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def vaciar(context):
     global data
@@ -358,21 +333,18 @@ async def vaciar(context):
     textChannel = context.message.channel
     serverID = str(context.message.guild.id)
 
-    if not await checkChannel(context):
-        return
-
     data[serverID]["playlist"].clear()
 
     embed = discord.Embed(title="Se ha vaciado la playlist", colour = discord.Color.green())
     await textChannel.send(embed=embed)
 
+@commands.guild_only()
+@commands.check(userConnectedToGuildVoice)
+@commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def song(context):
     global data
-
-    if not await checkChannel(context):
-        return
-
+  
     serverID = str(context.message.guild.id)
     textChannel = context.message.channel
 
@@ -390,7 +362,7 @@ async def song(context):
         embed.description = "\t" + msg
     
     else:
-        embed.title = "No esta sonando nada"
+        embed.title = "No está sonando nada"
 
     await textChannel.send(embed=embed)
 
