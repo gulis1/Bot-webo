@@ -15,6 +15,9 @@ from spotify import HTTPClient
 from random import randint
 from time import time
 
+# (In seconds) If a video exceeds this duration, it won't be downloaded.
+MAX_VIDEO_DURATION = 900
+
 with open("tokens.json") as tokens:
     tokens = loadJson(tokens)
     api_key = tokens["youtube"]
@@ -47,7 +50,7 @@ class video():
         try:
             return (time() - self.startTime)/self.duration
         
-        except:
+        except ZeroDivisionError:
             return 0
         
         
@@ -110,15 +113,17 @@ def downloadSong(videoId, path):
 
     ydl_opts["outtmpl"] = path
 
-
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])  # Download into the current working directory
     
 async def playSong(data, serverID, textChannel):
-    
+    global MAX_VIDEO_DURATION
+
+    # Adds ended song to the end of the playlist if loop == all
     if data[serverID]["loop"] == 2:
         data[serverID]["playlist"].append(data[serverID]["currentSong"])
 
+    # Changes current song info if loop != single
     if data[serverID]["currentSong"] != 1:
         
         if len(data[serverID]["playlist"]) > 0:
@@ -128,6 +133,7 @@ async def playSong(data, serverID, textChannel):
             data[serverID]["currentSong"] = None
             return
 
+    # If the song comes from a spotify playlist, here a yt video will be found for that song
     if data[serverID]["currentSong"].id == None:
     
         try:
@@ -137,13 +143,21 @@ async def playSong(data, serverID, textChannel):
             data[serverID]["currentSong"].title = vidInfo["title"]
             data[serverID]["currentSong"].duration = vidInfo["duration"]
         
+        # If no results are found, this function ends
         except IndexError:
             await textChannel.send("Video no disponible.")
             return
 
+    # Gets the duration of the video that will be played, in case it is unknown 
     elif data[serverID]["currentSong"].duration == None:
         data[serverID]["currentSong"].duration = getVidInfo(data[serverID]["currentSong"].id)["duration"]
- 
+    
+
+    # Skips videos that are too long.
+    if data[serverID]["currentSong"].duration > MAX_VIDEO_DURATION:
+        await textChannel.send("Skipped {0} because it was too long.".format(data[serverID]["currentSong"].title))
+        return
+        
     # Downloads the song if loop is not on single.
     if data[serverID]["loop"] != 1:
         
@@ -158,7 +172,7 @@ async def playSong(data, serverID, textChannel):
             path = "serverAudio/" + serverID+".mp3"
             p1 = Thread(target=downloadSong, args=(vidID, path))
             p1.start()
-
+                      
             while p1.isAlive():
                 await sleep(3)
 
@@ -192,14 +206,6 @@ async def sendYtRresults(context, data):
         embed.set_image(url=vid["snippet"]["thumbnails"]["default"]["url"])
         data[str(serverID)]["search"].append(video(vid["id"]["videoId"], vid["snippet"]["title"]))
         await context.message.channel.send(embed=embed)
-    
-    #embed.set_footer(text = "Use /play + num")
-
-    
-
-    # else:
-    #     embed = discord.Embed(title="Aprende a escribir pringao", colour = discord.Color.green())
-    #     await context.message.channel.send(embed=embed)
 
 def getVidInfo(idVid, *args):
 

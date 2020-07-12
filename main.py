@@ -141,7 +141,7 @@ async def play(context, arg):
             # Aqui se mete si se le pasa directamente una enlace
             videoID = arg[32:]
             
-            vidInfo = await getVidInfo(videoID)
+            vidInfo = getVidInfo(videoID)
             
             if vidInfo == None:
                 embed = discord.Embed(title="Wrong URL.", colour = discord.Color.green())
