@@ -179,6 +179,7 @@ async def play(context, arg):
 @commands.check(userConnectedToGuildVoice)
 @client.command(pass_context = True)
 async def playlist(context, url, order=None):
+    global data
     global MAX_SONGS
     
     textChannel = context.message.channel  
