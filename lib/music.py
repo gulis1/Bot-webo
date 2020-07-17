@@ -144,13 +144,19 @@ async def playSong(data, serverID, textChannel):
             data[serverID]["currentSong"].duration = vidInfo["duration"]
         
         # If no results are found, this function ends
-        except IndexError:
+        except:
             await textChannel.send("Video no disponible.")
             return
 
     # Gets the duration of the video that will be played, in case it is unknown 
     elif data[serverID]["currentSong"].duration == None:
-        data[serverID]["currentSong"].duration = getVidInfo(data[serverID]["currentSong"].id)["duration"]
+        info = getVidInfo(data[serverID]["currentSong"].id)
+
+        if info != None:           
+            data[serverID]["currentSong"].duration = info["duration"]
+        
+        else:
+            data[serverID]["currentSong"].duration = 0
     
 
     # Skips videos that are too long.
@@ -187,7 +193,7 @@ async def playSong(data, serverID, textChannel):
 
 def yt_search(string):
     global youtube
-    
+  
     return youtube.search().list(part="snippet", type="video", q=string).execute()
 
 async def sendYtRresults(context, data):
@@ -217,7 +223,7 @@ def getVidInfo(idVid, *args):
     try:
         res = youtube.videos().list(part="snippet, contentDetails", id=idVid).execute()["items"][0]
        
-    except IndexError:
+    except:
         return None
 
     else:

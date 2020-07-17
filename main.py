@@ -148,8 +148,7 @@ async def play(context, arg):
                 await context.message.channel.send(embed=embed)
                 return
             
-            else:
-                
+            else:               
                 title = vidInfo["title"]
                 duration = vidInfo["duration"]          
                 data[str(serverID)]["playlist"].append(video(videoID, title, duration=duration))
