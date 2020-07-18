@@ -245,9 +245,8 @@ def retrievePlaylist(playlistID):
         for vid in res["items"]:
             title = vid["snippet"]["title"]
             vidID = vid["snippet"]["resourceId"]["videoId"]
-            duration = convertTime(vid["contentDetails"]["duration"])
 
-            lista.append(video(vidID, title, duration=duration))
+            lista.append(video(vidID, title))
     except:
         pass
 

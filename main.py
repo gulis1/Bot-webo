@@ -202,7 +202,13 @@ async def playlist(context, url, order=None):
 
         lista = await spotifyPlaylist(ID[3], order)
     else:
-        lista = retrievePlaylist(url[38:])
+        ID = re.search("(youtube.com|youtu.be)(\/playlist\?list=)([a-zA-Z0-9\-\_]+)", url)
+        if ID == None:
+            embed = discord.Embed(title="Wrong URL.", colour = discord.Color.green())
+            await context.message.channel.send(embed=embed)
+            return
+
+        lista = retrievePlaylist(ID[3])
   
     cont = 0
 
