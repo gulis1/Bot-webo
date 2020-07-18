@@ -11,9 +11,11 @@ from lib.httpRequests import getStringResponse
 from os import listdir, remove, system, path, mkdir
 from random import shuffle
 from json import load as loadJson
+import re
 
 if not path.isdir("serverAudio"):
     mkdir("serverAudio")
+
     
 data = {}
 client = commands.Bot("/")
@@ -53,6 +55,10 @@ async def botIsConnectedToGuildVoice(context):
 @client.event
 async def on_ready():
     print("Succesfully connected to Discord.")
+
+@client.command()
+async def ping(ctx):
+    await ctx.send(f'pong {round(client.latency * 1000)}ms')
 
 @client.command(pass_context = True)
 async def help(context, part = None):
@@ -136,10 +142,9 @@ async def play(context, arg):
         await context.message.channel.send(embed=embed)
     
     else:
-  
         if arg.startswith("http"):
             # Aqui se mete si se le pasa directamente una enlace
-            videoID = arg[32:]
+            videoID = re.search("(youtube.com|youtu.be)(\/watch\?v=|\/)([a-zA-Z0-9\-\_]+)", arg)[3]
             
             vidInfo = getVidInfo(videoID)
             
@@ -183,12 +188,19 @@ async def playlist(context, url, order=None):
     
     textChannel = context.message.channel  
     serverID = str(context.message.guild.id)
-       
+
     if not serverID in data.keys():
         data[str(serverID)] = template
     
     if "spotify" in url:
-        lista = await spotifyPlaylist(url[34:], order)
+        
+        ID  = re.search("(https:\/\/open.spotify.com)(\/user\/spotify\/playlist\/|\/playlist\/)(\w+)", url)
+        if ID == None:
+            embed = discord.Embed(title="Wrong URL.", colour = discord.Color.green())
+            await context.message.channel.send(embed=embed)
+            return
+
+        lista = await spotifyPlaylist(ID[3], order)
     else:
         lista = retrievePlaylist(url[38:])
   
@@ -219,9 +231,11 @@ async def playlist(context, url, order=None):
 @client.command(pass_context = True)
 async def leave(context):
     serverID = str(context.message.guild.id)
-     
-    await data[serverID]["voiceClient"].disconnect()
     data[serverID]["voiceClient"] = None
+    data[serverID]["loop"] = 0
+    data[serverID]["playlist"].clear()
+    data[serverID]["currentSong"] = None
+    await data[serverID]["voiceClient"].disconnect()
 
 @commands.guild_only()
 @commands.check(userConnectedToGuildVoice)
