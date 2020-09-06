@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import discord
 from discord.voice_client import VoiceClient
 from discord.ext import commands
@@ -6,23 +7,20 @@ import asyncio
 
 from lib.danbooru import sendDanbooruIm, getTagList
 from lib.sauce import getSauce
-from lib.music import player, sendYtRresults, getVidInfo, video, retrievePlaylist, spotifyPlaylist, template
-from lib.httpRequests import getStringResponse
+from lib.music import player, sendYtRresults, getVidInfo, video, retrievePlaylist, spotifyPlaylist, template, spotifyAlbum
 from os import listdir, remove, system, path, mkdir
-from random import shuffle
 from json import load as loadJson
 import re
+from lib.animeStuff import timeUntilAiring
 
-if not path.isdir("serverAudio"):
-    mkdir("serverAudio")
 
-    
 data = {}
-client = commands.Bot("/")
-client.remove_command("help")
 
 with open("tokens.json") as tokens:
     token = loadJson(tokens)["discord"]
+
+client = commands.Bot("/")
+client.remove_command("help")
 
 system("youtube-dl --rm-cache-dir")
 
@@ -65,8 +63,7 @@ async def help(context, part = None):
     
     if part == "music":
        text = """
-            •  /play <url/nombre/numero> 
-            •  /playlist <playlistURL> (r)
+            •  /play <url/nombre/numero> (r) (Funciona con videos y playlists de youtube, y albumes y playlists de spotify)
             •  /lista
             •  /song
             •  /vaciar
@@ -87,12 +84,18 @@ async def help(context, part = None):
             (Tambien se puede pasar una foto con comentario /sauce)
        """
 
+    elif part == "anime":
+        text = """
+        •  /anime <nombre>
+    """
+
     else:
 
         text = """
             •  /help music
             •  /help danbooru
             •  /help sauces
+            •  /help anime
         """
     
     embed = discord.Embed(title="Help:", description = text, colour = discord.Color.green())
@@ -100,21 +103,19 @@ async def help(context, part = None):
 
 @client.command(pass_context = True)
 async def danbooru(context):
-    print("Command (danbooru) received.")
+
     channel = context.channel
     await sendDanbooruIm(context.message.content[10:], channel)
 
 @client.command(pass_context=True)
 async def tags(context):
-    print("Command (danbooru) received.")
+
     channel = context.channel
     await getTagList(context.message.content[6:], channel)
 
 @client.command(pass_context = True)
 async def sauce(context):
-    print("Command (source) received.")
     message = context.message
-    channel = message.channel
 
     if len(message.attachments) == 0:
         await getSauce(message)
@@ -122,12 +123,22 @@ async def sauce(context):
         message.content = "/sauce " + message.attachments[0].proxy_url
         await getSauce(message)
 
+#Anime commands
+
+@client.command(pass_context = True)
+async def anime(context):
+    channel = context.message.channel
+    title = context.message.content[6:]
+    try: 
+        await timeUntilAiring(title, channel)
+    except:
+        pass
 
 # Music commands
 @commands.guild_only()
 @commands.check(userConnectedToGuildVoice)
 @client.command(pass_context = True)
-async def play(context, arg):
+async def play(context, arg, order = None):
     global data
     global MAX_SONGS
 
@@ -142,21 +153,27 @@ async def play(context, arg):
         await context.message.channel.send(embed=embed)
     
     else:
+
         if arg.startswith("http"):
-            # Aqui se mete si se le pasa directamente una enlace
-            videoID = re.search("(youtube.com|youtu.be)(\/watch\?v=|\/)([a-zA-Z0-9\-\_]+)", arg)[3]
+            # Aqui se mete si se le pasa directamente un enlace
+            videoID = re.search("(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*)", arg)
+            if videoID != None:
             
-            vidInfo = getVidInfo(videoID)
-            
-            if vidInfo == None:
-                embed = discord.Embed(title="Wrong URL.", colour = discord.Color.green())
-                await context.message.channel.send(embed=embed)
+                vidInfo = await getVidInfo(videoID[2])      
+                
+                if vidInfo == None:
+                    embed = discord.Embed(title="Wrong URL.", colour = discord.Color.green())
+                    await context.message.channel.send(embed=embed)
+                    return
+                
+                else:               
+                    title = vidInfo["title"]
+                    duration = vidInfo["duration"]          
+                    data[str(serverID)]["playlist"].append(video(videoID[2], title, duration=duration))
+
+            else:
+                await playlist(context, arg, order=order)
                 return
-            
-            else:               
-                title = vidInfo["title"]
-                duration = vidInfo["duration"]          
-                data[str(serverID)]["playlist"].append(video(videoID, title, duration=duration))
         
         elif arg.isnumeric():
             num = int(arg) - 1
@@ -179,28 +196,29 @@ async def play(context, arg):
         if data[serverID]["voiceClient"] == None:
             await player(context, data)
 
-@commands.guild_only()
-@commands.check(userConnectedToGuildVoice)
-@client.command(pass_context = True)
+
 async def playlist(context, url, order=None):
     global data
     global MAX_SONGS
     
     textChannel = context.message.channel  
     serverID = str(context.message.guild.id)
-
-    if not serverID in data.keys():
-        data[str(serverID)] = template
     
     if "spotify" in url:
+        listID  = re.search("(https:\/\/open.spotify.com)(\/user\/spotify\/playlist\/|\/playlist\/)(\w+)", url)
+        albumID = re.search("(https:\/\/open.spotify.com)(\/user\/spotify\/playlist\/|\/album\/)(\w+)", url)
+
+        if listID != None:
+            lista = await spotifyPlaylist(listID[3], order=order)
         
-        ID  = re.search("(https:\/\/open.spotify.com)(\/user\/spotify\/playlist\/|\/playlist\/)(\w+)", url)
-        if ID == None:
+        elif albumID != None:
+            lista = await spotifyAlbum(albumID[3], order=order)
+        
+        else:
             embed = discord.Embed(title="Wrong URL.", colour = discord.Color.green())
             await context.message.channel.send(embed=embed)
             return
-
-        lista = await spotifyPlaylist(ID[3], order)
+        
     else:
         ID = re.search("(youtube.com|youtu.be)(\/playlist\?list=)([a-zA-Z0-9\-\_]+)", url)
         if ID == None:
@@ -208,7 +226,7 @@ async def playlist(context, url, order=None):
             await context.message.channel.send(embed=embed)
             return
 
-        lista = retrievePlaylist(ID[3])
+        lista = await retrievePlaylist(ID[3], order)
   
     cont = 0
 
@@ -220,11 +238,10 @@ async def playlist(context, url, order=None):
             
             data[serverID]["playlist"].append(video(vidID, title))
             cont += 1
-        else:
+        else:   
             break
 
 
-    
     embed = embed = discord.Embed(title="Se han añadido " + str(cont) + " canciones a la playlist.", colour = discord.Color.green())
     await textChannel.send(embed=embed)   
 
@@ -237,11 +254,11 @@ async def playlist(context, url, order=None):
 @client.command(pass_context = True)
 async def leave(context):
     serverID = str(context.message.guild.id)
-    data[serverID]["voiceClient"] = None
+    await data[serverID]["voiceClient"].disconnect()
     data[serverID]["loop"] = 0
     data[serverID]["playlist"].clear()
     data[serverID]["currentSong"] = None
-    await data[serverID]["voiceClient"].disconnect()
+    
 
 @commands.guild_only()
 @commands.check(userConnectedToGuildVoice)

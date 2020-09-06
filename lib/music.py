@@ -8,12 +8,11 @@ from discord.ext.commands import Bot
 from os import remove
 from os.path import isfile
 from asyncio import sleep
-from .httpRequests import getStringResponse
-from googleapiclient.discovery import build
 from json import load as loadJson
 from spotify import HTTPClient
-from random import randint
+from random import randint, shuffle
 from time import time
+from .httpRequests import getJsonResponse
 
 # (In seconds) If a video exceeds this duration, it won't be downloaded.
 MAX_VIDEO_DURATION = 900
@@ -24,7 +23,6 @@ with open("tokens.json") as tokens:
     spotifyClientId = tokens["spotify"]["clientId"]
     spotifySecretId = tokens["spotify"]["secretId"]
 
-youtube = build("youtube", "v3", developerKey= api_key)
 spotifyClient = HTTPClient( spotifyClientId, spotifySecretId)
 
 template =     {
@@ -60,7 +58,7 @@ async def player(context, data):
     textChannel = context.message.channel
 
     data[serverID]["voiceClient"] = await context.message.author.voice.channel.connect()    
-    
+
     while data[serverID]["voiceClient"].is_connected():
 
         if not data[serverID]["voiceClient"].is_playing():
@@ -73,12 +71,13 @@ async def player(context, data):
         if len(data[serverID]["voiceClient"].channel.members) == 1:
             await data[serverID]["voiceClient"].disconnect()
             await textChannel.send("Se ha ido todo el mundo, me piro")
+           
 
-            
         # If there are no more songs and the one that was playing is finished, the loop ends.
-        if (data[serverID]["currentSong"] == None and not data[serverID]["voiceClient"].is_playing()):
+        elif data[serverID]["currentSong"] == None and not data[serverID]["voiceClient"].is_playing():
             await data[serverID]["voiceClient"].disconnect()
             await textChannel.send("La playlist esta vacia, me piro.")
+  
         
     
     try:
@@ -91,6 +90,7 @@ async def player(context, data):
     data[serverID]["loop"] = 0
     data[serverID]["playlist"].clear()
     data[serverID]["currentSong"] = None
+    
 
 def downloadSong(videoId, path):
     
@@ -99,12 +99,6 @@ def downloadSong(videoId, path):
     ydl_opts = {
 
         'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-            
-        }],
         'quiet': False,
         'outtmpl': 'musica.mp3',
         'noplaylist': True
@@ -124,7 +118,7 @@ async def playSong(data, serverID, textChannel):
         data[serverID]["playlist"].append(data[serverID]["currentSong"])
 
     # Changes current song info if loop != single
-    if data[serverID]["currentSong"] != 1:
+    if data[serverID]["loop"] != 1:
         
         if len(data[serverID]["playlist"]) > 0:
             data[serverID]["currentSong"] = data[serverID]["playlist"][0]
@@ -133,13 +127,14 @@ async def playSong(data, serverID, textChannel):
             data[serverID]["currentSong"] = None
             return
 
-    # If the song comes from a spotify playlist, here a yt video will be found for that song
+    # If the song has no id (Most likely becasue it comes from a spotify playlist), here a yt video will be found for that song
     if data[serverID]["currentSong"].id == None:
     
         try:
-            data[serverID]["currentSong"].id = yt_search(data[serverID]["currentSong"].title)["items"][0]["id"]["videoId"]
+            vidList = await yt_search(data[serverID]["currentSong"].title)
+            data[serverID]["currentSong"].id = vidList["items"][0]["id"]["videoId"]
             
-            vidInfo = getVidInfo(data[serverID]["currentSong"].id)
+            vidInfo = await getVidInfo(data[serverID]["currentSong"].id)
             data[serverID]["currentSong"].title = vidInfo["title"]
             data[serverID]["currentSong"].duration = vidInfo["duration"]
         
@@ -150,7 +145,7 @@ async def playSong(data, serverID, textChannel):
 
     # Gets the duration of the video that will be played, in case it is unknown 
     elif data[serverID]["currentSong"].duration == None:
-        info = getVidInfo(data[serverID]["currentSong"].id)
+        info = await getVidInfo(data[serverID]["currentSong"].id)
 
         if info != None:           
             data[serverID]["currentSong"].duration = info["duration"]
@@ -191,10 +186,12 @@ async def playSong(data, serverID, textChannel):
     except:
         await textChannel.send("Video no disponible.")
 
-def yt_search(string):
+async def yt_search(string):
     global youtube
-  
-    return youtube.search().list(part="snippet", type="video", q=string).execute()
+    
+    response = await getJsonResponse(f"https://www.googleapis.com/youtube/v3/search?key={api_key}&part=snippet&type=video&q={string}")
+
+    return response.content
 
 async def sendYtRresults(context, data):
 
@@ -202,7 +199,7 @@ async def sendYtRresults(context, data):
 
     q = context.message.content[6:]
 
-    result = yt_search(q)
+    result = await yt_search(q)
 
     data[str(serverID)]["search"].clear()     
     embed = discord.Embed(title="Results", colour = discord.Color.green())       
@@ -213,7 +210,7 @@ async def sendYtRresults(context, data):
         data[str(serverID)]["search"].append(video(vid["id"]["videoId"], vid["snippet"]["title"]))
         await context.message.channel.send(embed=embed)
 
-def getVidInfo(idVid, *args):
+async def getVidInfo(idVid):
 
     info = {
         "title": None,
@@ -221,25 +218,33 @@ def getVidInfo(idVid, *args):
     }
      
     try:
-        res = youtube.videos().list(part="snippet, contentDetails", id=idVid).execute()["items"][0]
+        response = await getJsonResponse(f"https://www.googleapis.com/youtube/v3/videos?key={api_key}&part=snippet,contentDetails&id={idVid}")
+
+        if response.status == 200:
+            res = response.content
+        
+        else:
+            return None
        
     except:
         return None
 
     else:
-        info["title"] = res["snippet"]["title"]  
-        info["duration"] = convertTime(res["contentDetails"]["duration"])
+        info["title"] = res["items"][0]["snippet"]["title"]  
+        info["duration"] = convertTime(res["items"][0]["contentDetails"]["duration"])
 
     finally:
         return info
         
     
-def retrievePlaylist(playlistID):
+async def retrievePlaylist(playlistID, order):
     lista = []
     
     try:
+        response = await getJsonResponse(f"https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&part=snippet,contentDetails&maxResults=30&playlistId={playlistID}")
+        res = response.content
         
-        res = youtube.playlistItems().list(part="snippet", playlistId=playlistID, maxResults=30).execute()
+        #res = youtube.playlistItems().list(part="snippet", playlistId=playlistID, maxResults=30).execute()
         title = res["items"][0]["snippet"]["title"]
 
         for vid in res["items"]:
@@ -250,15 +255,21 @@ def retrievePlaylist(playlistID):
     except:
         pass
 
+    if order == "r":
+        shuffle(lista)
+
     return lista
 
-async def spotifyPlaylist(playlistId, r):
-    global spotifyClient
 
+
+async def spotifyPlaylist(playlistId, order):
+    global spotifyClient
+    
     playlist = await spotifyClient.get_playlist(playlistId)
+    
     lista = []
 
-    if r == "r":
+    if order == "r":
         
         while len(lista) < 30 and len( playlist["tracks"]["items"]) > 0:
 
@@ -274,6 +285,33 @@ async def spotifyPlaylist(playlistId, r):
         for song in playlist["tracks"]["items"]:
             
             lista.append(video(None, song["track"]["name"] + " " + song["track"]["artists"][0]["name"]))
+            
+            if len(lista) >= 30:
+                break
+        
+    return lista
+
+async def spotifyAlbum(albumID, order):
+
+    album = await spotifyClient.album(albumID)
+    lista = []
+
+    if order == "r":
+        
+        while len(lista) < 30 and len( album["tracks"]["items"]) > 0:
+
+            ind = randint(0, len(album["tracks"]["items"]) - 1)
+            
+            title = album["tracks"]["items"][ind]["name"] + " " + album["tracks"]["items"][ind]["artists"][0]["name"]
+            vidID = None
+            
+            lista.append(video(None, title))
+            album["tracks"]["items"].pop(ind)
+
+    else:
+        for song in album["tracks"]["items"]:
+            
+            lista.append(video(None, song["name"] + " " + song["artists"][0]["name"]))
             
             if len(lista) >= 30:
                 break

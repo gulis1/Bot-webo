@@ -1,3 +1,6 @@
 tokens.json
 serverAudio
 lib/__pycache__
+champions/
+lib/lol.py
+.vscode
