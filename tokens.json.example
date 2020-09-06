@@ -1,0 +1,9 @@
+{
+    "discord": "xxx",
+    "youtube": "xxx",
+    "sauceNao": "xxx",
+    "spotify": {
+        "clientId": "xxx",
+        "secretId": "xxx"
+    }
+}

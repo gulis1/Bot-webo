@@ -70,13 +70,13 @@ async def player(context, data):
         # If the bot is alone in the voice channel, the loop ends.
         if len(data[serverID]["voiceClient"].channel.members) == 1:
             await data[serverID]["voiceClient"].disconnect()
-            await textChannel.send("Se ha ido todo el mundo, me piro")
+            await textChannel.send("Leaving channel: No users in channel")
            
 
         # If there are no more songs and the one that was playing is finished, the loop ends.
         elif data[serverID]["currentSong"] == None and not data[serverID]["voiceClient"].is_playing():
             await data[serverID]["voiceClient"].disconnect()
-            await textChannel.send("La playlist esta vacia, me piro.")
+            await textChannel.send("Leaving channel: playlist is empty")
   
         
     
@@ -140,7 +140,7 @@ async def playSong(data, serverID, textChannel):
         
         # If no results are found, this function ends
         except:
-            await textChannel.send("Video no disponible.")
+            await textChannel.send("Video unavailable.")
             return
 
     # Gets the duration of the video that will be played, in case it is unknown 
@@ -184,7 +184,7 @@ async def playSong(data, serverID, textChannel):
         data[serverID]["voiceClient"].play(discord.FFmpegPCMAudio("serverAudio/" + serverID + ".mp3"))
         data[serverID]["currentSong"].startTime = time()
     except:
-        await textChannel.send("Video no disponible.")
+        await textChannel.send("Video unavailable.")
 
 async def yt_search(string):
     global youtube

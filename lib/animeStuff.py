@@ -40,15 +40,15 @@ async def timeUntilAiring(title, channel):
     if response.status == 200:
 
         if response.content["data"]["Media"] is None:
-            embed.title = "No existe ese anime."
+            embed.title = "Show not found."
 
         elif response.content["data"]["Media"]["nextAiringEpisode"] is None:
             embed.title = response.content["data"]["Media"]["title"]["romaji"]
-            embed.description = "Ese anime ya ha terminado. ({0} episodios)".format(response.content["data"]["Media"]["episodes"])
+            embed.description = "Show already ended. ({0} episodes)".format(response.content["data"]["Media"]["episodes"])
 
         else:
             embed.title = response.content["data"]["Media"]["title"]["romaji"]
             time = timedelta(seconds = response.content["data"]["Media"]["nextAiringEpisode"]["timeUntilAiring"])
-            embed.description = "El episodio **{0}** sale en **{1}**".format(response.content["data"]["Media"]["nextAiringEpisode"]["episode"], time)
+            embed.description = "Episode **{0}** airs in **{1}**".format(response.content["data"]["Media"]["nextAiringEpisode"]["episode"], time)
 
     await channel.send(embed=embed)

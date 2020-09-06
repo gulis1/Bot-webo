@@ -28,7 +28,7 @@ async def getTagList(tag, channel):
     for elem in lista:
         mensaje += "  - " + elem["name"] + "\n"
 
-    embed = discord.Embed(title="Lista de tags:", colour=discord.Color.green())
+    embed = discord.Embed(title="Tag list:", colour=discord.Color.green())
     embed.description = mensaje
     
     await channel.send(embed=embed)

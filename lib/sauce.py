@@ -18,12 +18,12 @@ async def getSauce(message):
     response = await getJsonResponse(api_call.format(api_key, url))
 
     if response.status != 200:
-        embed = discord.Embed(title="Error desconocido.", colour = discord.Color.green())
+        embed = discord.Embed(title="Unknown error.", colour = discord.Color.green())
         await message.channel.send(embed=embed)
         return
     
     elif response.content["header"]["status"] == -3:
-        embed = discord.Embed(title="Eso no parece una imagen.", colour = discord.Color.green())
+        embed = discord.Embed(title="That's not an image.", colour = discord.Color.green())
         await message.channel.send(embed=embed)
         return
 
@@ -48,13 +48,13 @@ async def getSauce(message):
             await channel.send(embed=embed)
 
         else:
-            embed = discord.Embed(title="No se ha encontrado nada relevante.", colour = discord.Color.green())
+            embed = discord.Embed(title="No relevants results found.", colour = discord.Color.green())
             await message.channel.send(embed=embed)
             return
 
     
 
     else:
-        embed = discord.Embed(title="No se ha encotrado nada", colour = discord.Color.green())
+        embed = discord.Embed(title="No relevants results found.", colour = discord.Color.green())
         await message.channel.send(embed=embed)
         return

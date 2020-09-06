@@ -33,7 +33,7 @@ async def userConnectedToGuildVoice(context):
         return True
 
     else:
-        embed = discord.Embed(title="Tienes que estar en un canal de voz de este server.", colour = discord.Color.green())
+        embed = discord.Embed(title="You need to be in a voice channel of this server.", colour = discord.Color.green())
         await context.message.channel.send(embed=embed)
         return False
 
@@ -42,7 +42,7 @@ async def botIsConnectedToGuildVoice(context):
     serverID = str(context.message.guild.id)
 
     if serverID not in data.keys() or data[serverID]["voiceClient"] == None:
-        embed = discord.Embed(title="Ahora mismo no estoy metido aquí.", colour = discord.Color.green())
+        embed = discord.Embed(title="I'm not here.", colour = discord.Color.green())
         await context.message.channel.send(embed=embed)
         return False
 
@@ -63,13 +63,14 @@ async def help(context, part = None):
     
     if part == "music":
        text = """
-            •  /play <url/nombre/numero> (r) (Funciona con videos y playlists de youtube, y albumes y playlists de spotify)
-            •  /lista
+            •  /play <url/nombre/numero> (r) (Supports searching by name, youtube videos and playlists and spotify playlists and albums.)
+            •  /list
             •  /song
-            •  /vaciar
+            •  /empty
             •  /loop <off/single/all>
             •  /skip (ind)
             •  /leave 
+            •  /remove
        """
 
     elif part == "danbooru":
@@ -81,12 +82,11 @@ async def help(context, part = None):
     elif part == "sauces":
         text = """
             •  /sauce <url> 
-            (Tambien se puede pasar una foto con comentario /sauce)
        """
 
     elif part == "anime":
         text = """
-        •  /anime <nombre>
+        •  /anime <name>
     """
 
     else:
@@ -149,7 +149,7 @@ async def play(context, arg, order = None):
 
 
     if len(data[str(serverID)]["playlist"]) > MAX_SONGS - 1:
-        embed = discord.Embed(title="Ya hay 30 canciones en la playlist.", colour = discord.Color.green())
+        embed = discord.Embed(title="There's already 30 song in the playlist.", colour = discord.Color.green())
         await context.message.channel.send(embed=embed)
     
     else:
@@ -191,7 +191,7 @@ async def play(context, arg, order = None):
             return
         
         
-        await context.message.channel.send("Cancion añadida a la playlist")
+        await context.message.channel.send("Song added to the playlist.")
 
         if data[serverID]["voiceClient"] == None:
             await player(context, data)
@@ -242,7 +242,7 @@ async def playlist(context, url, order=None):
             break
 
 
-    embed = embed = discord.Embed(title="Se han añadido " + str(cont) + " canciones a la playlist.", colour = discord.Color.green())
+    embed = embed = discord.Embed(title=str(cont) + " song added to the playlist.", colour = discord.Color.green())
     await textChannel.send(embed=embed)   
 
     if data[serverID]["voiceClient"] == None:
@@ -314,7 +314,7 @@ async def skip(context, ind = None):
 @commands.check(userConnectedToGuildVoice)
 @commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
-async def lista(context):
+async def list(context):
     global data
    
     serverID = str(context.message.guild.id)
@@ -341,7 +341,7 @@ async def lista(context):
 @commands.check(userConnectedToGuildVoice)
 @commands.check(botIsConnectedToGuildVoice)
 @client.command(pass_context = True)
-async def quitar(context, numero):
+async def remove(context, numero):
     global data
     
     textChannel = context.message.channel
@@ -351,11 +351,11 @@ async def quitar(context, numero):
         numero =  int(numero)
         try:
             data[serverID]["playlist"].pop(numero-1)
-            embed = embed = discord.Embed(title="Cancion quitada de la playlist", colour = discord.Color.green())
+            embed = embed = discord.Embed(title="Song removed.", colour = discord.Color.green())
             await textChannel.send(embed=embed)
         
         except IndexError:
-            await textChannel.send("Eso no esta en la playlist")
+            await textChannel.send("Invalid number.")
 
     except:
         await textChannel.send("What")
@@ -399,7 +399,7 @@ async def song(context):
         embed.description = "\t" + msg
     
     else:
-        embed.title = "No está sonando nada"
+        embed.title = "No song is playing."
 
     await textChannel.send(embed=embed)
 
