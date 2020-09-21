@@ -388,15 +388,14 @@ async def song(context):
     embed = discord.Embed(colour=discord.Color.green())
     
     if data[serverID]["voiceClient"] != None and data[serverID]["voiceClient"].is_playing():
-        msg = list(["-" for x in range(0, 30)])
+        msg = "------------------------------"
         ind = round(30* (data[serverID]["currentSong"].perCentPlayed()))
 
-        msg[ind] = "**|**"
-        msg = "".join(msg)
-       
+        msg = msg[:ind] + "**|**"+ msg[ind + 1:]
+        
         embed.title = data[serverID]["currentSong"].title
 
-        embed.description = "\t" + msg
+        embed.description = msg
     
     else:
         embed.title = "No song is playing."
