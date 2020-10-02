@@ -134,6 +134,24 @@ async def anime(context):
     except:
         pass
 
+
+@client.command(pass_context = True)
+async def haachama(context):
+
+    with open("haachama.jpg", "rb") as haachamaFile:
+        haachamachama = discord.File(haachamaFile)
+        await context.message.channel.send(file=haachamachama)
+
+        try:
+            await context.message.delete()
+            
+        except:
+            pass
+    
+    
+
+
+
 # Music commands
 @commands.guild_only()
 @commands.check(userConnectedToGuildVoice)
