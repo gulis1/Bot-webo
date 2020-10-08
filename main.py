@@ -138,7 +138,7 @@ async def anime(context):
 @client.command(pass_context = True)
 async def haachama(context):
 
-    with open("haachama.jpg", "rb") as haachamaFile:
+    with open("images/haachama.jpg", "rb") as haachamaFile:
         haachamachama = discord.File(haachamaFile)
         await context.message.channel.send(file=haachamachama)
 
@@ -147,7 +147,33 @@ async def haachama(context):
             
         except:
             pass
-    
+
+@client.command(pass_context = True)
+async def pekora(context):
+
+    with open("images/pekora.jpg", "rb") as File:
+        img = discord.File(File)
+        await context.message.channel.send(file=img)
+
+        try:
+            await context.message.delete()
+            
+        except:
+            pass
+
+@client.command(pass_context = True)
+async def sad(context):
+
+    with open("images/sadPekora.jpg", "rb") as File:
+        img = discord.File(File)
+        await context.message.channel.send(file=img)
+
+        try:
+            await context.message.delete()
+            
+        except:
+            pass
+
     
 
 
