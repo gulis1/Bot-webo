@@ -89,6 +89,16 @@ async def help(context, part = None):
         •  /anime <name>
     """
 
+    elif part == "imagenes":
+        text = """
+            •  /pekora
+            •  /sad
+            •  /no
+            •  /yes
+            •  /haachama
+            •  /a
+        """
+
     else:
 
         text = """
@@ -96,6 +106,7 @@ async def help(context, part = None):
             •  /help danbooru
             •  /help sauces
             •  /help anime
+            •  /help imagenes
         """
     
     embed = discord.Embed(title="Help:", description = text, colour = discord.Color.green())
@@ -170,6 +181,12 @@ async def no(context):
 async def yes(context):
     
     await sendImage(context, "images/yes.gif")  
+
+
+@client.command(pass_context = True)
+async def a(context):
+    
+    await sendImage(context, "images/a.gif")  
 
 
 
