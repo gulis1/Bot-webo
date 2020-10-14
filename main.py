@@ -134,47 +134,43 @@ async def anime(context):
     except:
         pass
 
+async def sendImage(context, img):
+
+    with open(img, "rb") as File:
+        image = discord.File(File)
+        await context.message.channel.send(file=image)
+
+        try:
+            await context.message.delete()
+            
+        except:
+            pass
 
 @client.command(pass_context = True)
 async def haachama(context):
 
-    with open("images/haachama.jpg", "rb") as haachamaFile:
-        haachamachama = discord.File(haachamaFile)
-        await context.message.channel.send(file=haachamachama)
-
-        try:
-            await context.message.delete()
-            
-        except:
-            pass
+    await sendImage(context, "images/haachama.jpg")
 
 @client.command(pass_context = True)
 async def pekora(context):
 
-    with open("images/pekora.jpg", "rb") as File:
-        img = discord.File(File)
-        await context.message.channel.send(file=img)
-
-        try:
-            await context.message.delete()
-            
-        except:
-            pass
+    await sendImage(context, "images/pekora.jpg")
 
 @client.command(pass_context = True)
 async def sad(context):
 
-    with open("images/sadPekora.jpg", "rb") as File:
-        img = discord.File(File)
-        await context.message.channel.send(file=img)
+    await sendImage(context, "images/sadPekora.jpg")  
 
-        try:
-            await context.message.delete()
-            
-        except:
-            pass
-
+@client.command(pass_context = True)
+async def no(context):
     
+    await sendImage(context, "images/no.gif")  
+
+@client.command(pass_context = True)
+async def yes(context):
+    
+    await sendImage(context, "images/yes.gif")  
+
 
 
 
